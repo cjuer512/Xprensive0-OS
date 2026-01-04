@@ -8,7 +8,7 @@ start:
     mov ds, ax
     mov es, ax
     mov ss, ax
-    mov sp, 0x7c00
+    mov sp, 0x7a00
     mov al, 0x03
     mov ah, 0x00
     int 0x10
@@ -20,7 +20,7 @@ start:
     xor bx, bx          ; 偏移: 0x0000
     
     mov ah, 0x02        ; 读扇区功能
-    mov al, 4           ; 读取4个扇区(2KB)
+    mov al, 20           ; 读取20个扇区(2KB)
     mov ch, 0           ; 柱面0
     mov cl, 2           ; 从第2扇区开始
     mov dh, 0           ; 磁头0
@@ -108,7 +108,7 @@ DATA_SEG equ gdt_data - gdt_start
 [bits 32]
 init_pm:
     ; 5. 更新段寄存器
-    mov ax, DATA_SEG
+    mov ax, 0x10
     mov ds, ax
     mov ss, ax
     mov es, ax
@@ -121,7 +121,6 @@ init_pm:
 
     ; 7. 调用32位主函数
     call BEGIN_PM
-
 ; 32位保护模式的主函数
 BEGIN_PM:
     ; 在这里，你已经完全运行在32位保护模式下！
@@ -132,6 +131,7 @@ BEGIN_PM:
    
     mov edi, 0xb8000     ; 文本显存地址
     mov ah, 0x0f         ; 白字黑底
+    
     
 
 .print_loop:
