@@ -18,6 +18,7 @@ _start:
     mov dword [edi], 0x12003
     mov dword [0x12000], 0x13003
     mov dword [0x13000], 0x00000183
+    
 
     ; GDT必须在填充前定义！
 gdt:

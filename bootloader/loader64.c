@@ -1,6 +1,7 @@
 #include "../driver/stdint.h"
 #include "../driver/stddef.h"
 #include "../driver/driver.h"
+#include "../api/api.h"
 extern void keyboard_init(void);
 __attribute__((noreturn)) void setup_keyboard_interrupt() {
     /* ====== 第一部分：在内存中搜索 keyboard_handler 签名 ====== */
@@ -36,7 +37,10 @@ __attribute__((noreturn)) void setup_keyboard_interrupt() {
     __asm__ volatile("lidt %0" : : "m"(idtr));
     __asm__ volatile("sti");
     __asm__ volatile("int $0x21");
-    
+    //int test = print("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    //if(test == 0){
+    //    __asm__ volatile("nop");
+    //}
     
     while(1){
         __asm__ volatile("nop");

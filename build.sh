@@ -24,9 +24,12 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -mno-red-zone -mgeneral-regs-only \
     driver/keyboard.c -o keyboard.o
 
+gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
+    -mno-red-zone -mgeneral-regs-only \
+    api/print.c -o print.o
 # 5. 关键修改：将两个.o文件一起链接到0x10200
 echo "=== 链接（loader64 + keyboard）==="
-ld -nostdlib -Ttext=0x10200 -o kernel.elf loader64.o keyboard.o
+ld -nostdlib -Ttext=0x10200 -o kernel.elf loader64.o keyboard.o print.o
 
 # 6. 提取.text段（现在包含两个模块的代码）
 objcopy -O binary --only-section=.text kernel.elf kernel.bin

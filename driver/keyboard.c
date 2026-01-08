@@ -6,6 +6,7 @@
 }*/
 #include "stdint.h"    // 定义uint8_t, uint32_t等类型
 #include "stddef.h"    // 定义size_t, NULL等
+
 //--------------------我也不知道为什么要写这个，我折磨半天了，问deepseek告诉我得写这些-------
 static inline void outb(uint16_t port, uint8_t value);
 static inline uint8_t inb(uint16_t port);
@@ -28,9 +29,105 @@ static inline uint8_t inb(uint16_t port) {
     // 64位IDT条目结构不同！
 }*/
 //-------------------下面是我写的了-----------------------------
+char get_ascii_from_set2(uint8_t scancode) {
+    // 使用直接的 if-else 比较，避免编译器生成跳转表
+    if (scancode == 0x15) return 'q';
+    if (scancode == 0x1D) return 'w';
+    if (scancode == 0x24) return 'e';
+    if (scancode == 0x2D) return 'r';
+    if (scancode == 0x2C) return 't';
+    if (scancode == 0x35) return 'y';
+    if (scancode == 0x3C) return 'u';
+    if (scancode == 0x43) return 'i';
+    if (scancode == 0x44) return 'o';
+    if (scancode == 0x4D) return 'p';
+    
+    if (scancode == 0x1C) return 'a';
+    if (scancode == 0x1B) return 's'; // S键
+    if (scancode == 0x23) return 'd';
+    if (scancode == 0x2B) return 'f';
+    if (scancode == 0x34) return 'g';
+    if (scancode == 0x33) return 'h';
+    if (scancode == 0x3B) return 'j';
+    if (scancode == 0x42) return 'k';
+    if (scancode == 0x4B) return 'l';
+    
+    if (scancode == 0x1A) return 'z';
+    if (scancode == 0x22) return 'x';
+    if (scancode == 0x21) return 'c';
+    if (scancode == 0x2A) return 'v';
+    if (scancode == 0x32) return 'b';
+    if (scancode == 0x31) return 'n';
+    if (scancode == 0x3A) return 'm';
+    
+    if (scancode == 0x16) return '1';
+    if (scancode == 0x1E) return '2';
+    if (scancode == 0x26) return '3';
+    if (scancode == 0x25) return '4';
+    if (scancode == 0x2E) return '5';
+    if (scancode == 0x36) return '6';
+    if (scancode == 0x3D) return '7';
+    if (scancode == 0x3E) return '8';
+    if (scancode == 0x46) return '9';
+    if (scancode == 0x45) return '0';
+    
+    if (scancode == 0x29) return ' ';
+    if (scancode == 0x5A) return '\n';
+    if (scancode == 0x66) return '\b';
+    
+    // 所有其他值，包括 0xF0, 0xE0，都返回 0
+    return 0;
+}
+char get_ascii_from_set1(uint8_t scancode) {
+    // XT Set 1 通码 -> ASCII 映射 (小写字母和数字部分)
+    // 使用 if-else 链，安全无跳转表
+    if (scancode == 0x1E) return 'a'; // A
+    if (scancode == 0x30) return 'b'; // B
+    if (scancode == 0x2E) return 'c'; // C
+    if (scancode == 0x20) return 'd'; // D
+    if (scancode == 0x12) return 'e'; // E
+    if (scancode == 0x21) return 'f'; // F (你按下F，现在会显示'f'了)
+    if (scancode == 0x22) return 'g'; // G
+    if (scancode == 0x23) return 'h'; // H
+    if (scancode == 0x17) return 'i'; // I
+    if (scancode == 0x24) return 'j'; // J
+    if (scancode == 0x25) return 'k'; // K
+    if (scancode == 0x26) return 'l'; // L
+    if (scancode == 0x32) return 'm'; // M
+    if (scancode == 0x31) return 'n'; // N
+    if (scancode == 0x18) return 'o'; // O
+    if (scancode == 0x19) return 'p'; // P
+    if (scancode == 0x10) return 'q'; // Q
+    if (scancode == 0x13) return 'r'; // R
+    if (scancode == 0x1F) return 's'; // S (现在按S会有反应了)
+    if (scancode == 0x14) return 't'; // T
+    if (scancode == 0x16) return 'u'; // U
+    if (scancode == 0x2F) return 'v'; // V
+    if (scancode == 0x11) return 'w'; // W
+    if (scancode == 0x2D) return 'x'; // X
+    if (scancode == 0x15) return 'y'; // Y
+    if (scancode == 0x2C) return 'z'; // Z
 
+    // 数字行 (键盘上方)
+    if (scancode == 0x02) return '1';
+    if (scancode == 0x03) return '2';
+    if (scancode == 0x04) return '3';
+    if (scancode == 0x05) return '4';
+    if (scancode == 0x06) return '5';
+    if (scancode == 0x07) return '6';
+    if (scancode == 0x08) return '7';
+    if (scancode == 0x09) return '8';
+    if (scancode == 0x0A) return '9';
+    if (scancode == 0x0B) return '0';
 
+    // 空格、回车等
+    if (scancode == 0x39) return ' ';  // 空格
+    if (scancode == 0x1C) return '\n'; // 回车
+    if (scancode == 0x0E) return '\b'; // 退格
 
+    // 默认：不是已知通码，返回0
+    return 0;
+}
 struct interrupt_frame {
     uint64_t rip;     // 指令指针（返回地址）
     uint64_t cs;      // 代码段选择子
@@ -45,10 +142,25 @@ void keyboard_handler(struct interrupt_frame* frame) {
     
     // 1. 读取键盘扫描码
     uint8_t scancode = inb(0x60);
+    if (scancode == 0xF0) {
+        
+        outb(0x20, 0x20);
+    }
+    if (scancode == 0xE0) {
+        
+        outb(0x20, 0x20); 
+    }
+    int scancode_int = (int)scancode;
+    // AT Set 2 通码 -> ASCII 映射表 (小写/数字状态)
+// 索引=扫描码通码，值=对应的ASCII字符，0表示无映射或特殊键
+    // 在全局区域定义这个“完美”映射表
+    
+    char ascii_code = get_ascii_from_set1(scancode); 
     
     char* video = (char*)0xB8000;
-    video[2] = scancode;
-    video[3] = 0x0E;
+    //video[0] = set2_to_ascii[scancode];
+    video[0] = ascii_code;
+    video[1] = 0x0E;
     // 3. 通知PIC中断处理结束
     outb(0x20, 0x20);  // 向主PIC发送EOI
 }
@@ -68,6 +180,7 @@ void keyboard_init(void){
     outb(0x21, 0x01);  // ICW4: 8086模式
     outb(0xA1, 0x01);
     outb(0x21, 0xFD);  // OCW1: 屏蔽所有中断，只开启键盘(IRQ1)
+    
     outb(0xA1, 0xFF); // OCW1: 屏蔽所有从PIC中断
     // 设置IDT条目，让中断0x21指向keyboard_handler
     //set_idt_entry64(0x21, (uint64_t)keyboard_handler, 0x08, 0x8E);
