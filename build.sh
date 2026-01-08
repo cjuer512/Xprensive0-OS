@@ -29,17 +29,17 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     api/print.c -o print.o
 # 5. 关键修改：将两个.o文件一起链接到0x10200
 echo "=== 链接（loader64 + keyboard）==="
-ld -nostdlib -Ttext=0x10200 -o kernel.elf loader64.o keyboard.o print.o
+ld -nostdlib -Ttext=0x10200 -o loader64.elf loader64.o keyboard.o print.o
 
 # 6. 提取.text段（现在包含两个模块的代码）
-objcopy -O binary --only-section=.text kernel.elf kernel.bin
+objcopy -O binary --only-section=.text loader64.elf loader64.bin
 
 # 7. 验证提取的内容
-echo "kernel.bin大小: $(stat -c%s kernel.bin) 字节"
-hexdump -C kernel.bin | head -5
+echo "loader64.bin大小: $(stat -c%s loader64.bin) 字节"
+hexdump -C loader64.bin | head -5
 
 # 8. 写入磁盘（从扇区2开始）
-dd if=kernel.bin of=hd.raw bs=512 seek=2 conv=notrunc
+dd if=loader64.bin of=hd.raw bs=512 seek=2 conv=notrunc
 
 # 9. 验证磁盘写入
 echo "=== 磁盘验证 ==="
@@ -48,4 +48,31 @@ dd if=hd.raw bs=512 skip=2 count=1 2>/dev/null | hexdump -C | head -3
 
 # 10. 生成符号表用于调试
 echo "=== 符号地址 ==="
-nm kernel.elf | grep -E "(keyboard_handler|keyboard_init|setup_keyboard_interrupt)"
+nm loader64.elf | grep -E "(keyboard_handler|keyboard_init|setup_keyboard_interrupt)"
+
+# 在原脚本的 #9 或 #10 步骤之后，添加：
+
+echo "=== 创建最终整合镜像 Xprensive0-OS.bin ==="
+
+# 方法：按引导顺序直接拼接三个二进制文件
+cat boot.bin loader.bin kernel.bin > Xprensive0-OS.bin
+
+# 验证最终文件大小
+BOOT_SIZE=$(stat -c%s boot.bin)
+LOADER_SIZE=$(stat -c%s loader.bin)
+KERNEL_SIZE=$(stat -c%s kernel.bin)
+TOTAL_SIZE=$((BOOT_SIZE + LOADER_SIZE + KERNEL_SIZE))
+
+echo "各组件大小:"
+echo "  boot.bin:    $BOOT_SIZE 字节"
+echo "  loader.bin:  $LOADER_SIZE 字节"
+echo "  kernel.bin:  $KERNEL_SIZE 字节"
+echo "  总大小:      $(stat -c%s Xprensive0-OS.bin) 字节 (应为 $TOTAL_SIZE)"
+
+# 验证拼接是否正确（检查开头512字节是否与boot.bin一致）
+echo "=== 验证镜像开头 ==="
+head -c 512 Xprensive0-OS.bin | hexdump -C | head -3
+
+echo "=== 完成! ==="
+echo "最终镜像: Xprensive0-OS.bin"
+echo "可以直接使用: qemu-system-x86_64 -kernel Xprensive0-OS.bin"
