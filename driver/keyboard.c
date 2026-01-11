@@ -6,9 +6,12 @@
 }*/
 #include "stdint.h"    // 定义uint8_t, uint32_t等类型
 #include "stddef.h"    // 定义size_t, NULL等
+#include "driverp.h"
 
+uint16_t cursor_x = 0;  // 当前列 (0-79)
+uint16_t cursor_y = 0;  // 当前行 (0-24)
 //--------------------我也不知道为什么要写这个，我折磨半天了，问deepseek告诉我得写这些-------
-static inline void outb(uint16_t port, uint8_t value);
+/*static inline void outb(uint16_t port, uint8_t value);
 static inline uint8_t inb(uint16_t port);
 void set_idt_entry64(uint8_t index, uint64_t handler, uint16_t selector, uint8_t type_attr);
 
@@ -21,7 +24,7 @@ static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
-}
+}*/
 
 // 3. 64位IDT设置函数
 /*void set_idt_entry64(uint8_t index, uint64_t handler, uint16_t selector, uint8_t type_attr) {
@@ -144,11 +147,13 @@ void keyboard_handler(struct interrupt_frame* frame) {
     uint8_t scancode = inb(0x60);
     if (scancode == 0xF0) {
         
-        outb(0x20, 0x20);
+        //outb(0x20, 0x20);
+        __asm__ volatile("nop"::);
     }
     if (scancode == 0xE0) {
         
-        outb(0x20, 0x20); 
+        //outb(0x20, 0x20);
+        __asm__ volatile("nop"::);
     }
     int scancode_int = (int)scancode;
     // AT Set 2 通码 -> ASCII 映射表 (小写/数字状态)
@@ -157,14 +162,29 @@ void keyboard_handler(struct interrupt_frame* frame) {
     
     char ascii_code = get_ascii_from_set1(scancode); 
     
-    char* video = (char*)0xB8000;
+    //char* video = (char*)0xB8000;
     //video[0] = set2_to_ascii[scancode];
-    video[0] = ascii_code;
-    video[1] = 0x0E;
+    uint16_t pos = cursor_y * 80 + cursor_x;  // 计算位置
+    char* video = (char*)0xB8000 + pos * 2;   // 定位到正确位置
+    if(ascii_code!=0){
+        video[0] = ascii_code;
+        video[1] = 0x0F;
+    }
+    if(ascii_code!=0){
+        cursor_x++;  // 列加1
+    }
+    if (cursor_x >= 80) {  // 如果到行尾
+    cursor_x = 0;      // 回到行首
+    cursor_y++;        // 换到下一行
+    if (cursor_y >= 25) {  // 如果到底部
+        cursor_y = 0;      // 回到顶部（简单处理）
+    }
+}
     // 3. 通知PIC中断处理结束
     outb(0x20, 0x20);  // 向主PIC发送EOI
 }
-void keyboard_init(void){
+void keyboard_init(uint8_t* idt){
+    uint64_t handler_addr = (uint64_t)keyboard_handler;
     /*该函数用来初始化键盘和其它驱动设置*/
     outb(0x20, 0x11);  // 向主PIC发送ICW1
     //创造延迟
@@ -186,5 +206,15 @@ void keyboard_init(void){
     //set_idt_entry64(0x21, (uint64_t)keyboard_handler, 0x08, 0x8E);
     // 最后，取消键盘的屏蔽（只开启IRQ1）
     outb(0x21, inb(0x21) & 0xFD);  // 清除IRQ1的屏蔽位（位1）
+    // 2. 只设置键盘中断条目（0x21）
+    uint8_t* entry = &idt[0x21 * 16];
     
+    // 填16字节...
+    *(uint16_t*)(entry + 0) = handler_addr & 0xFFFF;
+    *(uint16_t*)(entry + 2) = 0x0008;
+    *(uint8_t*)(entry + 4) = 0x00;
+    *(uint8_t*)(entry + 5) = 0x8E;
+    *(uint16_t*)(entry + 6) = (handler_addr >> 16) & 0xFFFF;
+    *(uint32_t*)(entry + 8) = handler_addr >> 32;
+    *(uint32_t*)(entry + 12) = 0;
 }
