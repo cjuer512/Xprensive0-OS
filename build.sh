@@ -2,7 +2,7 @@
 rm -f hd.raw *.bin *.elf *.o
 
 # 1. 创建虚拟硬盘
-dd if=/dev/zero of=hd.raw bs=512 count=6144 2>/dev/null
+dd if=/dev/zero of=hd.raw bs=512 count=16384 2>/dev/null
 
 # 2. boot.asm (第一扇区, 0x7C00)
 nasm -f bin -o boot.bin bootloader/boot.asm
@@ -35,10 +35,13 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
 gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -mno-red-zone -mgeneral-regs-only \
     driver/harddisk.c -o harddisk.o
+
+gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
+    -mno-red-zone -mgeneral-regs-only \
+    driver/graphicscard.c -o graphicscard.o
 # 5. 关键修改：将两个.o文件一起链接到0x10200
 echo "=== 链接（loader64 + keyboard）==="
-ld -nostdlib -Ttext=0x10200 -o loader64.elf loader64.o keyboard.o print.o driverp.o harddisk.o
-
+ld -nostdlib -Ttext=0x10200 -o loader64.elf loader64.o keyboard.o print.o driverp.o harddisk.o graphicscard.o
 # 6. 提取.text段（现在包含两个模块的代码）
 objcopy -O binary --only-section=.text loader64.elf loader64.bin
 
@@ -47,7 +50,7 @@ echo "loader64.bin大小: $(stat -c%s loader64.bin) 字节"
 hexdump -C loader64.bin | head -5
 
 # 8. 写入磁盘（从扇区2开始）
-dd if=loader64.bin of=hd.raw bs=512 seek=2 conv=notrunc
+dd if=loader64.bin of=hd.raw bs=1 seek=1024 conv=notrunc
 
 # 9. 验证磁盘写入
 echo "=== 磁盘验证 ==="
