@@ -10,7 +10,7 @@
 
 uint16_t cursor_x = 0;  // 当前列 (0-79)
 uint16_t cursor_y = 0;  // 当前行 (0-24)
-//--------------------我也不知道为什么要写这个，我折磨半天了，问deepseek告诉我得写这些-------
+
 /*static inline void outb(uint16_t port, uint8_t value);
 static inline uint8_t inb(uint16_t port);
 void set_idt_entry64(uint8_t index, uint64_t handler, uint16_t selector, uint8_t type_attr);
@@ -28,10 +28,10 @@ static inline uint8_t inb(uint16_t port) {
 
 // 3. 64位IDT设置函数
 /*void set_idt_entry64(uint8_t index, uint64_t handler, uint16_t selector, uint8_t type_attr) {
-    // 你需要实现这个函数，或者修改现有实现
+    
     // 64位IDT条目结构不同！
 }*/
-//-------------------下面是我写的了-----------------------------
+
 char get_ascii_from_set2(uint8_t scancode) {
     // 使用直接的 if-else 比较，避免编译器生成跳转表
     if (scancode == 0x15) return 'q';
