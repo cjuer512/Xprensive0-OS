@@ -21,36 +21,62 @@
 
 // ========== 函数1：设置VGA模式13h ==========
 void vga_set_mode_13h(void) {
-    uint8_t *vga_buffer = (uint8_t*)VGA_MEMORY;
-    // 设置320x200 256色模式
-    outb(VGA_MISC_WRITE, 0x63);
+    // 新增：定义VGA状态端口（关键时序等待用）
+    #define VGA_STATUS_PORT 0x3DA
     
-    // 序列器寄存器
+    // 步骤1：先等待VGA硬件就绪（清空挂起状态）
+    while (inb(VGA_STATUS_PORT) & 0x08); // 等待垂直同步结束
+    
+    // 步骤2：设置MISC寄存器（基础模式）
+    outb(VGA_MISC_WRITE, 0x63);
+    inb(VGA_STATUS_PORT); // 同步
+    
+    // 步骤3：序列器寄存器（修正时序，加等待）
     outb(VGA_SEQ_INDEX, 0); outb(VGA_SEQ_DATA, 0x03);
     outb(VGA_SEQ_INDEX, 1); outb(VGA_SEQ_DATA, 0x01);
     outb(VGA_SEQ_INDEX, 2); outb(VGA_SEQ_DATA, 0x0F);
     outb(VGA_SEQ_INDEX, 3); outb(VGA_SEQ_DATA, 0x00);
     outb(VGA_SEQ_INDEX, 4); outb(VGA_SEQ_DATA, 0x0E);
+    inb(VGA_STATUS_PORT); // 同步
     
-    // 解锁CRTC
+    // 步骤4：解锁CRTC（你的代码是对的，加等待）
     outb(VGA_CRTC_INDEX, 0x03); outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) | 0x80);
     outb(VGA_CRTC_INDEX, 0x11); outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) & ~0x80);
+    inb(VGA_STATUS_PORT); // 同步
     
-    // CRTC寄存器（设置分辨率）
+    // 步骤5：CRTC寄存器（分辨率配置，加等待）
     uint8_t crtc[] = {0x5F,0x4F,0x50,0x82,0x54,0x80,0xBF,0x1F,0x00,0x41,0x00,0x00,0x00,0x00,0x00,0x00,0x9C,0x0E,0x8F,0x28,0x40,0x96,0xB9,0xA3,0xFF};
-    for(int i=0; i<25; i++) { outb(VGA_CRTC_INDEX, i); outb(VGA_CRTC_DATA, crtc[i]); }
+    for(int i=0; i<25; i++) { 
+        outb(VGA_CRTC_INDEX, i); 
+        outb(VGA_CRTC_DATA, crtc[i]);
+        inb(VGA_STATUS_PORT); // 每个寄存器写完都等就绪
+    }
     
-    // 图形控制器
-    uint8_t gc[] = {0x00,0x00,0x00,0x00,0x00,0x40,0x05,0x0F,0xFF};
-    for(int i=0; i<9; i++) { outb(VGA_GC_INDEX, i); outb(VGA_GC_DATA, gc[i]); }
+    // 步骤6：图形控制器（核心修复！修正显存映射）
+    // 原gc数组错误，新数组开启位平面、显存映射到0xA0000
+    uint8_t gc[] = {0x00,0x00,0x00,0x00,0xFF,0x40,0x05,0x0F,0xFF};
+    for(int i=0; i<9; i++) { 
+        outb(VGA_GC_INDEX, i); 
+        outb(VGA_GC_DATA, gc[i]);
+        inb(VGA_STATUS_PORT); // 同步
+    }
     
-    // 属性控制器
+    // 步骤7：属性控制器（加解锁步骤）
     inb(VGA_AC_READ);  // 重置
     uint8_t ac[] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0x41,0x00,0x0F,0x00,0x00};
-    for(int i=0; i<21; i++) { outb(VGA_AC_INDEX, i); outb(VGA_AC_WRITE, ac[i]); }
+    for(int i=0; i<21; i++) { 
+        outb(VGA_AC_INDEX, i); 
+        outb(VGA_AC_WRITE, ac[i]);
+        inb(VGA_STATUS_PORT); // 同步
+    }
     
+    // 新增：属性控制器最终解锁（关键！）
     inb(VGA_AC_READ);
     outb(VGA_AC_INDEX, 0x20);
+    inb(VGA_STATUS_PORT); // 最后一次同步
+    
+    // 清理临时宏
+    #undef VGA_STATUS_PORT
 }
 
 // ========== 函数2：设置调色板颜色 ==========

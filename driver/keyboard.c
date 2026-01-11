@@ -164,7 +164,7 @@ void keyboard_handler(struct interrupt_frame* frame) {
     
     //char* video = (char*)0xB8000;
     //video[0] = set2_to_ascii[scancode];
-    uint16_t pos = cursor_y * 80 + cursor_x;  // 计算位置
+    /*uint16_t pos = cursor_y * 80 + cursor_x;  // 计算位置
     char* video = (char*)0xB8000 + pos * 2;   // 定位到正确位置
     if(ascii_code!=0){
         video[0] = ascii_code;
@@ -179,7 +179,20 @@ void keyboard_handler(struct interrupt_frame* frame) {
     if (cursor_y >= 25) {  // 如果到底部
         cursor_y = 0;      // 回到顶部（简单处理）
     }
-}
+}*/
+    char* buffer = (char*)0x8800;
+    if(ascii_code!=0){
+        buffer[0] = buffer[1];
+        buffer[1] = buffer[2];
+        buffer[2] = buffer[3];
+        buffer[3] = ascii_code;
+    }else if (ascii_code=0)
+    {
+        __asm__ volatile("nop");
+    }
+    char* video = (char*)0xB8000;
+    video[0] = buffer[3];
+    
     // 3. 通知PIC中断处理结束
     outb(0x20, 0x20);  // 向主PIC发送EOI
 }
