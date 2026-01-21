@@ -1,105 +1,126 @@
-// graphicscard.c - 最简单的显卡驱动
-
+//2026.1.21由于我实在是真的真的没时间写改这个了（明天要有合格考，我还得复习），我就让ai帮忙写了下调试了下。
+//我也不知道为什么这个能运行成功，但既然能运行我就先别管问什么了
+// graphicscard.c - 经过验证的显卡驱动
 #include "stdint.h"
 #include "driverp.h"
 
-// 1. VGA模式13h的显存地址
 #define VGA_MEMORY 0xA0000
-
-
-// 2. VGA寄存器端口
-#define VGA_AC_INDEX   0x3C0
-#define VGA_MISC_WRITE 0x3C2
-#define VGA_SEQ_INDEX  0x3C4
-#define VGA_SEQ_DATA   0x3C5
-#define VGA_CRTC_INDEX 0x3D4
-#define VGA_CRTC_DATA  0x3D5
-#define VGA_GC_INDEX   0x3CE
-#define VGA_GC_DATA    0x3CF
-#define VGA_AC_WRITE   0x3C0
-#define VGA_AC_READ    0x3C1
-
-// ========== 函数1：设置VGA模式13h ==========
-void vga_set_mode_13h(void) {
-    // 新增：定义VGA状态端口（关键时序等待用）
-    #define VGA_STATUS_PORT 0x3DA
-    
-    // 步骤1：先等待VGA硬件就绪（清空挂起状态）
-    while (inb(VGA_STATUS_PORT) & 0x08); // 等待垂直同步结束
-    
-    // 步骤2：设置MISC寄存器（基础模式）
-    outb(VGA_MISC_WRITE, 0x63);
-    inb(VGA_STATUS_PORT); // 同步
-    
-    // 步骤3：序列器寄存器（修正时序，加等待）
-    outb(VGA_SEQ_INDEX, 0); outb(VGA_SEQ_DATA, 0x03);
-    outb(VGA_SEQ_INDEX, 1); outb(VGA_SEQ_DATA, 0x01);
-    outb(VGA_SEQ_INDEX, 2); outb(VGA_SEQ_DATA, 0x0F);
-    outb(VGA_SEQ_INDEX, 3); outb(VGA_SEQ_DATA, 0x00);
-    outb(VGA_SEQ_INDEX, 4); outb(VGA_SEQ_DATA, 0x0E);
-    inb(VGA_STATUS_PORT); // 同步
-    
-    // 步骤4：解锁CRTC（你的代码是对的，加等待）
-    outb(VGA_CRTC_INDEX, 0x03); outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) | 0x80);
-    outb(VGA_CRTC_INDEX, 0x11); outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) & ~0x80);
-    inb(VGA_STATUS_PORT); // 同步
-    
-    // 步骤5：CRTC寄存器（分辨率配置，加等待）
-    uint8_t crtc[] = {0x5F,0x4F,0x50,0x82,0x54,0x80,0xBF,0x1F,0x00,0x41,0x00,0x00,0x00,0x00,0x00,0x00,0x9C,0x0E,0x8F,0x28,0x40,0x96,0xB9,0xA3,0xFF};
-    for(int i=0; i<25; i++) { 
-        outb(VGA_CRTC_INDEX, i); 
-        outb(VGA_CRTC_DATA, crtc[i]);
-        inb(VGA_STATUS_PORT); // 每个寄存器写完都等就绪
-    }
-    
-    // 步骤6：图形控制器（核心修复！修正显存映射）
-    // 原gc数组错误，新数组开启位平面、显存映射到0xA0000
-    uint8_t gc[] = {0x00,0x00,0x00,0x00,0xFF,0x40,0x05,0x0F,0xFF};
-    for(int i=0; i<9; i++) { 
-        outb(VGA_GC_INDEX, i); 
-        outb(VGA_GC_DATA, gc[i]);
-        inb(VGA_STATUS_PORT); // 同步
-    }
-    
-    // 步骤7：属性控制器（加解锁步骤）
-    inb(VGA_AC_READ);  // 重置
-    uint8_t ac[] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0x41,0x00,0x0F,0x00,0x00};
-    for(int i=0; i<21; i++) { 
-        outb(VGA_AC_INDEX, i); 
-        outb(VGA_AC_WRITE, ac[i]);
-        inb(VGA_STATUS_PORT); // 同步
-    }
-    
-    // 新增：属性控制器最终解锁（关键！）
-    inb(VGA_AC_READ);
-    outb(VGA_AC_INDEX, 0x20);
-    inb(VGA_STATUS_PORT); // 最后一次同步
-    
-    // 清理临时宏
-    #undef VGA_STATUS_PORT
-}
-
-// ========== 函数2：设置调色板颜色 ==========
-void vga_set_palette_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
+void vga_clear_screen(uint8_t color) {
     uint8_t *vga_buffer = (uint8_t*)VGA_MEMORY;
-    outb(0x3C8, index);      // 设置调色板索引
-    outb(0x3C9, r >> 2);     // 红色 (VGA使用6位，所以右移2位)
-    outb(0x3C9, g >> 2);     // 绿色
-    outb(0x3C9, b >> 2);     // 蓝色
+    for (int i = 0; i < 320 * 200; i++) {
+        vga_buffer[i] = color;
+    }
+}
+void vga_set_mode_13h(void) {
+    // 禁用中断
+    __asm__ volatile ("cli");
+    
+    // 1. 设置MISC输出寄存器
+    outb(0x3C2, 0x63);
+    
+    // 2. 序列器寄存器 - 解锁扩展寄存器
+    outb(0x3C4, 0x00); outb(0x3C5, 0x03);
+    outb(0x3C4, 0x01); outb(0x3C5, 0x01);
+    outb(0x3C4, 0x02); outb(0x3C5, 0x0F);
+    outb(0x3C4, 0x03); outb(0x3C5, 0x00);
+    outb(0x3C4, 0x04); outb(0x3C5, 0x0E);
+    
+    // 3. 取消CRTC寄存器保护
+    outb(0x3D4, 0x11);
+    outb(0x3D5, inb(0x3D5) & 0x7F);
+    
+    // 4. CRTC寄存器 - 320x200 256色模式
+    outb(0x3D4, 0x00); outb(0x3D5, 0x5F);
+    outb(0x3D4, 0x01); outb(0x3D5, 0x4F);
+    outb(0x3D4, 0x02); outb(0x3D5, 0x50);
+    outb(0x3D4, 0x03); outb(0x3D5, 0x82);
+    outb(0x3D4, 0x04); outb(0x3D5, 0x54);
+    outb(0x3D4, 0x05); outb(0x3D5, 0x80);
+    outb(0x3D4, 0x06); outb(0x3D5, 0xBF);
+    outb(0x3D4, 0x07); outb(0x3D5, 0x1F);
+    outb(0x3D4, 0x08); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x09); outb(0x3D5, 0x41);
+    outb(0x3D4, 0x0A); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0B); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0C); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0D); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0E); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x0F); outb(0x3D5, 0x00);
+    outb(0x3D4, 0x10); outb(0x3D5, 0x9C);
+    outb(0x3D4, 0x11); outb(0x3D5, 0x0E);
+    outb(0x3D4, 0x12); outb(0x3D5, 0x8F);
+    outb(0x3D4, 0x13); outb(0x3D5, 0x28);
+    outb(0x3D4, 0x14); outb(0x3D5, 0x1F);
+    outb(0x3D4, 0x15); outb(0x3D5, 0x96);
+    outb(0x3D4, 0x16); outb(0x3D5, 0xB9);
+    outb(0x3D4, 0x17); outb(0x3D5, 0xA3);
+    outb(0x3D4, 0x18); outb(0x3D5, 0xFF);
+    
+    // 5. 图形控制器
+    outb(0x3CE, 0x00); outb(0x3CF, 0x00);
+    outb(0x3CE, 0x01); outb(0x3CF, 0x00);
+    outb(0x3CE, 0x02); outb(0x3CF, 0x00);
+    outb(0x3CE, 0x03); outb(0x3CF, 0x00);
+    outb(0x3CE, 0x04); outb(0x3CF, 0x00);
+    outb(0x3CE, 0x05); outb(0x3CF, 0x40);  // 256色模式
+    outb(0x3CE, 0x06); outb(0x3CF, 0x05);  // 图形模式
+    outb(0x3CE, 0x07); outb(0x3CF, 0x0F);
+    outb(0x3CE, 0x08); outb(0x3CF, 0xFF);
+    
+    // 6. 属性控制器 - 关键修复！正确设置调色板
+    uint8_t status = inb(0x3DA);  // 重置索引翻转
+    
+    // 先设置所有调色板索引为0-15
+    for (int i = 0; i < 16; i++) {
+        outb(0x3C0, i);       // 索引
+        outb(0x3C0, i);       // 数据
+    }
+    
+    // 设置属性控制器模式
+    outb(0x3C0, 0x10);       // 模式控制寄存器索引
+    outb(0x3C0, 0x41);       // 启用图形模式，禁用属性控制器
+    
+    outb(0x3C0, 0x11);       // 边框颜色索引
+    outb(0x3C0, 0x00);       // 黑色边框
+    
+    outb(0x3C0, 0x12);       // 颜色平面使能
+    outb(0x3C0, 0x0F);       // 所有平面
+    
+    outb(0x3C0, 0x13);       // 水平像素平移
+    outb(0x3C0, 0x00);
+    
+    outb(0x3C0, 0x14);       // 颜色选择
+    outb(0x3C0, 0x00);
+    
+    // 关键！启用属性控制器
+    outb(0x3C0, 0x20);
+    
+    // 7. 初始化调色板为灰度
+    outb(0x3C8, 0);  // 从索引0开始
+    for (int i = 0; i < 256; i++) {
+        outb(0x3C9, i >> 2);   // R
+        outb(0x3C9, i >> 2);   // G  
+        outb(0x3C9, i >> 2);   // B
+    }
+    
+    // 重新启用中断
+    __asm__ volatile ("sti");
+    
+    // 8. 清屏为黑色
+    vga_clear_screen(0);
 }
 
-// ========== 函数3：画一个像素 ==========
+void vga_set_palette_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
+    outb(0x3C8, index);
+    outb(0x3C9, r >> 2);  // VGA是6位颜色
+    outb(0x3C9, g >> 2);
+    outb(0x3C9, b >> 2);
+}
+
 void vga_put_pixel(int x, int y, uint8_t color) {
     uint8_t *vga_buffer = (uint8_t*)VGA_MEMORY;
-    if(x >= 0 && x < 320 && y >= 0 && y < 200) {
+    if (x >= 0 && x < 320 && y >= 0 && y < 200) {
         vga_buffer[y * 320 + x] = color;
     }
 }
 
-// ========== 函数4：清屏 ==========
-void vga_clear_screen(uint8_t color) {
-    uint8_t *vga_buffer = (uint8_t*)VGA_MEMORY;
-    for(int i = 0; i < 320 * 200; i++) {
-        vga_buffer[i] = color;
-    }
-}

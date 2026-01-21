@@ -31,7 +31,35 @@ static inline uint8_t inb(uint16_t port) {
     
     // 64位IDT条目结构不同！
 }*/
+#include "stdint.h"
 
+// 获取光标位置（行，列）
+uint16_t get_cursor_position(void) {
+    uint16_t pos = 0;
+    uint8_t high, low;  // 需要两个8位变量
+    
+    // 读取高字节
+    __asm__ volatile("outb %b0, %w1" : : "a" ((uint8_t)0x0E), "Nd" ((uint16_t)0x3D4));
+    __asm__ volatile("inb %w1, %b0" : "=a" (high) : "Nd" ((uint16_t)0x3D5));
+    
+    // 读取低字节
+    __asm__ volatile("outb %b0, %w1" : : "a" ((uint8_t)0x0F), "Nd" ((uint16_t)0x3D4));
+    __asm__ volatile("inb %w1, %b0" : "=a" (low) : "Nd" ((uint16_t)0x3D5));
+    
+    // 合并高字节和低字节
+    pos = ((uint16_t)high << 8) | (uint16_t)low;
+    
+    return pos;
+}
+void set_cursor_position(uint16_t pos) {
+    // 设置高字节
+    __asm__ volatile("outb %1, %0" : : "dN" ((uint16_t)0x3D4), "a" ((uint8_t)0x0E));
+    __asm__ volatile("outb %1, %0" : : "dN" ((uint16_t)0x3D5), "a" ((uint8_t)((pos >> 8) & 0xFF)));
+    
+    // 设置低字节
+    __asm__ volatile("outb %1, %0" : : "dN" ((uint16_t)0x3D4), "a" ((uint8_t)0x0F));
+    __asm__ volatile("outb %1, %0" : : "dN" ((uint16_t)0x3D5), "a" ((uint8_t)(pos & 0xFF)));
+}
 char get_ascii_from_set2(uint8_t scancode) {
     // 使用直接的 if-else 比较，避免编译器生成跳转表
     if (scancode == 0x15) return 'q';
