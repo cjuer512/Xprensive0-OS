@@ -1,7 +1,7 @@
 #include "stdint.h"
 
-uint16_t print_cursor_x = 0; // 当前列 (0-79)
-uint16_t print_cursor_y = 0; // 当前行 (0-24)
+static uint16_t print_cursor_x = 0; // 当前列 (0-79)
+static uint16_t print_cursor_y = 0; // 当前行 (0-24)
 
 uint16_t print_get_cursor_position(void)
 {
@@ -35,11 +35,21 @@ void print_set_cursor_position(uint16_t pos)
 
 void print_char(char word)
 {
+    if (word == '\n') {
+        print_cursor_x = 0;        // 回到行首
+        print_cursor_y++;          // 移到下一行
+        if (print_cursor_y >= 25) {
+            print_cursor_y = 0;    // 简单滚屏：回到顶部
+        }
+        // 更新硬件光标位置
+        print_set_cursor_position(print_cursor_y * 80 + print_cursor_x);
+        return; // 换行符不需要写入显存，直接返回
+    }
     char *video = (char *)0xB8000;
     char *buffer = (char *)0x8800;
 
     // 清屏（可选）
-    
+
     print_get_cursor_position();
     uint16_t pos = print_cursor_y * 80 + print_cursor_x; // 计算位置
     char *video_locaiton = (char *)0xB8000 + pos * 2;    // 定位到正确位置
@@ -58,10 +68,12 @@ void print_char(char word)
     }
     print_set_cursor_position(print_cursor_y * 80 + print_cursor_x);
 }
-void print_line(char* line){
-    for(int i=0;i<10;i = i + 1){
-    //for(int i=0;line[i]!='\0';i = i + 1){
+void print_line(char *line)
+{
+    for (int i = 0; line[i]!='\0'; i = i + 1)
+    {
+        // for(int i=0;line[i]!='\0';i = i + 1){
         print_char(line[i]);
     }
-    print_char('$');
+    
 }

@@ -166,7 +166,7 @@ char get_ascii_from_set1(uint8_t scancode)
     if (scancode == 0x12)
         return 'e'; // E
     if (scancode == 0x21)
-        return 'f'; // F (你按下F，现在会显示'f'了)
+        return 'f'; // F
     if (scancode == 0x22)
         return 'g'; // G
     if (scancode == 0x23)
@@ -192,7 +192,7 @@ char get_ascii_from_set1(uint8_t scancode)
     if (scancode == 0x13)
         return 'r'; // R
     if (scancode == 0x1F)
-        return 's'; // S (现在按S会有反应了)
+        return 's'; // S
     if (scancode == 0x14)
         return 't'; // T
     if (scancode == 0x16)
@@ -252,8 +252,34 @@ struct interrupt_frame
 // 键盘中断处理函数（中断号0x21）
 __attribute__((interrupt)) void keyboard_handler(struct interrupt_frame *frame)
 {
-    (void)frame; // 明确表示不使用，避免警告 {
+    /*uint64_t *new_handler = (uint64_t *)0x9000;
+    uint64_t handler_address_location = *new_handler; // 得到地址A
 
+    // 2. 将这个地址值转换为函数指针类型（根据你的函数签名）
+    typedef void (*handler_func_t)(void); // 假设函数无参数
+    handler_func_t real_handler = (handler_func_t)handler_address_location;
+    
+    // 3. 调用（跳转）
+    if (real_handler != NULL)
+    {
+        real_handler();
+        return;
+    }*/
+    (void)frame; // 明确表示不使用，避免警告 {
+    // ✅ 【新增】1. 检查是否有自定义处理函数
+    uint64_t *handler_ptr = (uint64_t*)0x9000;
+    uint64_t custom_handler_addr = *handler_ptr;
+    
+    if(custom_handler_addr != 0) {
+        // ✅ 【新增】2. 跳转到自定义处理函数
+        void (*custom_handler)(struct interrupt_frame*) = 
+            (void(*)(struct interrupt_frame*))custom_handler_addr;
+        custom_handler(frame);  // 执行自定义处理函数
+        
+        // ✅ 【新增】3. 自定义函数执行后，发送EOI并返回
+        outb(0x20, 0x20);
+        return;  // 直接返回，不执行下面的默认处理
+    }
     // 1. 读取键盘扫描码
     uint8_t scancode = inb(0x60);
     if (scancode == 0xF0)
@@ -300,7 +326,7 @@ __attribute__((interrupt)) void keyboard_handler(struct interrupt_frame *frame)
         buffer[1] = buffer[2];
         buffer[2] = buffer[3];
         buffer[3] = ascii_code;
-        /*if (ascii_code = '\n')
+        if (ascii_code == '\n')
         {
             uint16_t pos = 0;
             uint8_t high, low;
@@ -316,17 +342,18 @@ __attribute__((interrupt)) void keyboard_handler(struct interrupt_frame *frame)
             // 合并高字节和低字节
             pos = ((uint16_t)high << 8) | (uint16_t)low;
 
-            pos = (cursor_y + 1) * 80 + 0x0; // 计算位置
-                                                      // 设置高字节
+            pos = (high + 1) * 80 + 0x0; // 计算位置
+            high = high + 1;
+            // 设置高字节
             __asm__ volatile("outb %1, %0" : : "dN"((uint16_t)0x3D4), "a"((uint8_t)0x0E));
             __asm__ volatile("outb %1, %0" : : "dN"((uint16_t)0x3D5), "a"((uint8_t)((pos >> 8) & 0xFF)));
 
             // 设置低字节
             __asm__ volatile("outb %1, %0" : : "dN"((uint16_t)0x3D4), "a"((uint8_t)0x0F));
             __asm__ volatile("outb %1, %0" : : "dN"((uint16_t)0x3D5), "a"((uint8_t)(pos & 0xFF)));
-        }*/
+        }
     }
-    else if (ascii_code = 0)
+    else if (ascii_code == 0)
     {
         __asm__ volatile("nop");
     }

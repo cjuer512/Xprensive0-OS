@@ -55,6 +55,11 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -mno-red-zone -mgeneral-regs-only \
     -g -O0\
     kernel/init.c -o temp/init.o
+
+gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
+    -mno-red-zone -mgeneral-regs-only \
+    -g -O0\
+    kernel/sucmd.c -o temp/sucmd.o
 # 链接生成带完整调试信息的ELF文件（去掉不支持的-gdwarf-2）
 echo "=== 链接生成调试ELF ==="
 echo "=== 链接生成调试ELF ==="
@@ -67,8 +72,9 @@ ld -nostdlib -T link64.ld \
     temp/harddisk.o \
     temp/graphicscard.o \
     temp/print.o \
-    temp/init.o
-objcopy -O binary --only-section=.text xprensive-debug.elf loader64.bin 
+    temp/init.o \
+    temp/sucmd.o
+objcopy -O binary xprensive-debug.elf loader64.bin 
 
 
 # 8. 写入磁盘（从扇区2开始）

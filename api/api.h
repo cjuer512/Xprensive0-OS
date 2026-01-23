@@ -1,1 +1,0 @@
-extern int print(const char* words);
