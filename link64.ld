@@ -1,24 +1,50 @@
-/* 最简单的链接脚本 */
+/* linker.ld - 完整的内存布局 */
+ENTRY(loader64_main)
+
 SECTIONS {
-    .boot 0x7C00 : { boot.o(.text) }
-    .loader 0x10000 : { loader.o(.text) }
-    .text 0x10200 : { loader64.o(.text) }
-    .keyboard_driver 0x20000 : {
-        /* 确保该段的内容只来自键盘驱动目标文件 */
-        keyboard.o(.text)
-        keyboard.o(.data)
-        keyboard.o(.rodata)
-        driverp.o(.text)
-        driverp.o(.data)
-        driverp.o(.rodata)
-        harddisk.o(.text)
-        harddisk.o(.data)
-        harddisk.o(.rodata)
-        
-        graphicscard.o(.text)
-        graphicscard.o(.data)
-        graphicscard.o(.rodata)
+    /* 内核加载地址 */
+    . = 0x10200;
+    
+    /* 代码段 */
+    .text : {
+        *(.text)
+        *(.text.*)
     }
-    .data : { *(.data) }
-    .bss : { *(.bss) }
+    
+    /* 只读数据段（字符串在这里！） */
+    . = ALIGN(4096);
+    .rodata : {
+        *(.rodata)
+        *(.rodata.*)
+    }
+    
+    /* 可读写数据段 */
+    . = ALIGN(4096);
+    .data : {
+        *(.data)
+        *(.data.*)
+    }
+    
+    /* 未初始化数据段 (BSS) */
+    . = ALIGN(4096);
+    .bss : {
+        __bss_start = .;
+        *(.bss)
+        *(.bss.*)
+        *(COMMON)
+        __bss_end = .;
+    }
+    
+    /* 栈空间（可选） */
+    . = ALIGN(4096);
+    .stack : {
+        . = . + 0x4000; /* 16KB栈 */
+        __stack_top = .;
+    }
+    
+    /* 丢弃其他段 */
+    /DISCARD/ : {
+        *(.comment)
+        *(.eh_frame)
+    }
 }

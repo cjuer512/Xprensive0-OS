@@ -2,26 +2,27 @@
 #include "../driver/stddef.h"
 #include "../driver/driver.h"
 #include "../driver/driverp.h"
+#include "../kernel/kernel.h"
 __attribute__((aligned(4096))) static uint8_t idt[4096] = {0};  // IDT表（4KB，对齐到4KB）
 __attribute__((aligned(512))) static uint16_t big_buffer[256 * 4] = {0};  // 硬盘缓冲区（2KB，对齐到512）
-
-__attribute__((noreturn)) void setup_keyboard_interrupt() {
+extern void kernel_init();
+__attribute__((noreturn)) void loader64_main() {
     __asm__ volatile("cli");
     // 1. 先切换VGA 13h模式（必须放最前面！）
-    vga_set_mode_13h();
+    //vga_set_mode_13h();
     
     // 2. 初始化调色板（模式切换后再做，且修正数值范围）
-    outb(0x3C8, 0); // 从索引0开始设置
+    /*outb(0x3C8, 0); // 从索引0开始设置
     for(int i=0; i<256; i++) {
         outb(0x3C9, i >> 2);   // 红色分量（0~63）
         outb(0x3C9, i >> 2);   // 绿色分量
         outb(0x3C9, i >> 2);   // 蓝色分量
-    }
+    }*/
     
     // 3. 往显存写入渐变值（最后写）
     // 替换你当前的清屏代码
-    vga_set_palette_color(1, 0x00, 0x00, 0xFF); // 索引1=纯蓝
-    vga_clear_screen(1); // 清屏为蓝色
+    //vga_set_palette_color(1, 0x00, 0x00, 0xFF); // 索引1=纯蓝
+    //vga_clear_screen(1); // 清屏为蓝色
     
     //2.加载驱动
     //2.1键盘驱动（一般来说其实应该是硬盘驱动，但是因为我先写的键盘驱动所以就先加载了）
@@ -45,9 +46,10 @@ __attribute__((noreturn)) void setup_keyboard_interrupt() {
     //video1[0] = 'K';
     //__asm__ volatile("int $0x21");
     //__asm__ volatile("int $0x2E");
+    
+    // 4. 开中断（如果需要）
+    kernel_init();
     while(1){
         __asm__ volatile("nop");
     }
-    // 4. 开中断（如果需要）
-    
 }
