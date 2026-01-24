@@ -9,6 +9,18 @@ static volatile int command_ready = 0; // 1=命令已输入，等待执行
 static char command_buffer[256] = {0}; // 存储命令字符串
 static int cmd_length = 0;
 // 命令执行函数（具体实现）
+int cmpstr(char* start,char* targetword,int number){
+    for(int i = 0;i<number;i = i+1){
+        if(start[i]==targetword[i]){
+            if(i = number-1){
+                return 1;
+            }
+            continue;
+        }else{
+            return 0;
+        }
+    }
+}
 void execute_command(char *cmd)
 {
     if (cmd[0] == '\0')
@@ -47,6 +59,9 @@ void execute_command(char *cmd)
         // echo命令：显示后面的内容
         print_line(&cmd[5]); // 跳过 "echo "
         print_line("\n");
+    }else if(cmpstr(cmd,"version",7)){
+        print_line("Xprensive-OS,version0.0.0");
+        print_line("\n");
     }
     else
     {
@@ -80,9 +95,8 @@ void input()
         // 3. 换行
         pos = get_cursor_position();
         uint16_t next_line = (pos / 80 + 1) * 80;
-        
+
         set_cursor_position(next_line);
-        
 
         outb(0x20, 0x20);
         return;
@@ -117,8 +131,6 @@ void input()
 
         // 显示到屏幕
         pos = get_cursor_position();
-
-        
 
         // 现在用正确的pos计算显示位置
         char *video_location = (char *)0xB8000 + pos * 2;
@@ -158,7 +170,7 @@ void sucmd_main()
             pos = get_cursor_position();
 
             // 先检查是否需要清屏！！！
-            
+
             // 4. 显示新的提示符
             print_line("\n>>>");
         }

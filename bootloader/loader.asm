@@ -9,64 +9,99 @@ _start:
     mov ss, ax
     mov esp, 0x90000
 
-    ; 显示"32"
-    mov dword [0xB8000], 0x1F331F32
+    ; 显示"INIT"
+    mov dword [0xB8000], 0x1F491F4E
+    mov dword [0xB8004], 0x1F541F49
 
-    ; 设置页表
-     ; ========== 最优页表设置（0x8000 系列安全地址） ==========
-    ; PML4 表基址：0x8000（0x8000~0x10000 纯空闲，无任何代码占用）
-    mov edi, 0x8000          
-    mov cr3, edi             ; 加载 PML4 表到 CR3
+    ; 简单但有效的页表设置
+    ; 只映射最低的2MB，包括我们的代码和数据
     
-    ; 恒等映射：PML4[0] → PDPT 表（0x81000）
-    mov dword [edi], 0x81003 ; P=1, RW=1, US=0（标志不变）
-    ; PDPT[0] → PDT 表（0x82000）
-    mov dword [0x81000], 0x82003 ; 同上
-    ; PDT[0] → 物理页 0x00000（恒等映射，标志完全不变）
-    mov dword [0x82000], 0x00000183 ; PS=1 大页 + 恒等映射
-    ; =======================================================
+    ; 1. 清空PML4
+    mov edi, 0x8000
+    xor eax, eax
+    mov ecx, 1024
+    rep stosd
     
+    ; 2. 设置PML4[0] -> PDPT at 0x9000
+    mov dword [0x8000], 0x9003
+    mov dword [0x8004], 0
+    
+    ; 3. 清空PDPT
+    mov edi, 0x9000
+    mov ecx, 1024
+    rep stosd
+    
+    ; 4. 设置PDPT[0] -> PDT at 0xA000
+    mov dword [0x9000], 0xA003
+    mov dword [0x9004], 0
+    
+    ; 5. 清空PDT
+    mov edi, 0xA000
+    mov ecx, 1024
+    rep stosd
+    
+    ; 6. 映射第一个2MB页 (包括0x00000-0x1FFFFF)
+    mov dword [0xA000], 0x00000183  ; 物理地址0x0, 2MB页
+    mov dword [0xA004], 0
+    
+    ; 7. 映射视频内存区域 (0xB8000在物理地址0xB8000)
+    ; 0xB8000在第二个2MB页中
+    mov dword [0xA008], 0x00200183  ; 物理地址0x200000, 2MB页
+    mov dword [0xA00C], 0
+    
+    ; 8. 设置CR3
+    mov eax, 0x8000
+    mov cr3, eax
+    
+    ; 显示"PAGE"
+    mov dword [0xB8008], 0x1F451F50
+    mov dword [0xB800C], 0x1F001F47
 
-    ; GDT必须在填充前定义！
-gdt:
-    ; 0. 空描述符 (必须)
-    dq 0x0000000000000000
-
-    ; 1. 64位代码段描述符 (索引 1, 选择子 0x08)
-    ; 关键：L=1 (长模式), D/B=0, G=0 (对于长模式，界限通常忽略)
-    ; 基址=0, 界限=0, P=1, DPL=0, S=1, Type=1010 (可执行/可读)
-    dq (1 << 43) | (1 << 44) | (1 << 47) | (1 << 53)  ; 对应十六进制: 0x0020980000000000
-    ; 分解: Type=1010(0xA), S=1, DPL=00, P=1 -> 访问字节 = 0x9A
-    ;       标志: G=0, D/B=0, L=1, AVL=0 -> 0x20
-    ;       所以高32位 = 0x00209A00，但通常直接写为 0x0020980000000000 (Type 1000也可，但1010更标准)
-
-    ; 2. 64位数据段描述符 (索引 2, 选择子 0x10)
-    ; 基址=0, 界限=0, P=1, DPL=0, S=1, Type=0010 (可读/写)
-    ; 或者修正位运算 - Type=0010 (可读/写) 应该是位41和42
-    dq (1 << 41) | (1 << 42) | (1 << 44) | (1 << 47)  ; 正确：Type=0011             ; 对应十六进制: 0x0000920000000000
-    ; 访问字节 = 0x92 (P=1, DPL=00, S=1, Type=0010)
-gdt64_end:
-
-; GDT 描述符指针 (用于 LGDT 指令)
-gdt_ptr:
-    dw gdt64_end - gdt - 1  ; 16位界限（表大小-1）
-    dq gdt 
-
-    ; 模式切换
-    lgdt [gdt_ptr]
-    ;地址扩展
+    ; 启用PAE
     mov eax, cr4
     or eax, (1 << 5)
     mov cr4, eax
-
+    
+    ; 设置LME
     mov ecx, 0xC0000080
     rdmsr
     or eax, (1 << 8)
     wrmsr
+    
+    ; 加载GDT
+    lgdt [gdt_ptr]
+    
+    ; 启用分页
     mov eax, cr0
     or eax, (1 << 31)
     mov cr0, eax
+    
+    ; 跳转到64位
+    jmp 0x08:long_mode_entry
 
-    ; 跳转到阶段2
-    jmp 0x08:0x10200
+gdt:
+    dq 0x0000000000000000
+    dq 0x0020980000000000
+    dq 0x0000920000000000
+gdt_end:
 
+gdt_ptr:
+    dw gdt_end - gdt - 1
+    dd gdt
+
+[bits 64]
+long_mode_entry:
+    ; 显示"64"
+    mov rax, 0x1F341F36
+    mov [0xB8010], rax
+    
+    ; 设置段寄存器
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    
+    ; 跳转到C代码
+    jmp 0x10200
+
+times 512 - ($ - $$) db 0

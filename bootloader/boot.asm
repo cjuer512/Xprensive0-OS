@@ -20,7 +20,7 @@ start:
     xor bx, bx          ; 偏移: 0x0000
     
     mov ah, 0x02        ; 读扇区功能
-    mov al, 20           ; 读取20个扇区(2KB)
+    mov al, 32           ; 读取20个扇区(2KB)
     mov ch, 0           ; 柱面0
     mov cl, 2           ; 从第2扇区开始
     mov dh, 0           ; 磁头0
