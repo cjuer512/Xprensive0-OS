@@ -1,0 +1,1 @@
+qemu-system-x86_64 -drive format=raw,file=hd.raw -d int 2>&1 | tee qemu.log

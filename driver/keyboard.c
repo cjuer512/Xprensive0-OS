@@ -365,23 +365,7 @@ void keyboard_init(uint8_t *idt)
 {
     uint64_t handler_addr = (uint64_t)keyboard_handler;
     /*该函数用来初始化键盘和其它驱动设置*/
-    outb(0x20, 0x11); // 向主PIC发送ICW1
-    // 创造延迟
-    for (int i = 0; i < 100; i++)
-    {
-        __asm__ volatile("nop"); // 空操作指令
-    }
-    outb(0xA0, 0x11); // 向从PIC发送ICW1
-    // 设置主PIC：IRQ0-IRQ7映射到0x20-0x27
-    outb(0x21, 0x20); // 向主PIC数据端口发送ICW2
-    outb(0xA1, 0x28); // 向从PIC数据端口发送ICW2
-    outb(0x21, 0x04); // ICW3: 主PIC IRQ2连接从PIC
-    outb(0xA1, 0x02); // ICW3: 从PIC连接到主PIC IRQ2
-    outb(0x21, 0x01); // ICW4: 8086模式
-    outb(0xA1, 0x01);
-    outb(0x21, 0xFD); // OCW1: 屏蔽所有中断，只开启键盘(IRQ1)
-
-    outb(0xA1, 0xFF); // OCW1: 屏蔽所有从PIC中断
+    
     // 设置IDT条目，让中断0x21指向keyboard_handler
     // set_idt_entry64(0x21, (uint64_t)keyboard_handler, 0x08, 0x8E);
     // 最后，取消键盘的屏蔽（只开启IRQ1）

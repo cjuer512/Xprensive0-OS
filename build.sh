@@ -64,6 +64,11 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -mno-red-zone -mgeneral-regs-only \
     -g -O0\
     kernel/set/syscall.c -o temp/syscall.o
+
+gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
+    -mno-red-zone -mgeneral-regs-only \
+    -g -O0\
+    kernel/set/user.c -o temp/user.o
 # 链接生成带完整调试信息的ELF文件（去掉不支持的-gdwarf-2）
 echo "=== 链接生成调试ELF ==="
 echo "=== 链接生成调试ELF ==="
@@ -78,7 +83,8 @@ ld -nostdlib -T link64.ld \
     temp/print.o \
     temp/init.o \
     temp/sucmd.o \
-    temp/syscall.o
+    temp/syscall.o \
+    temp/user.o
 objcopy -O binary xprensive-debug.elf loader64.bin 
 
 

@@ -30,8 +30,8 @@ __attribute__((noreturn)) void kernel_init(){
     print_line("hello,world\n");
     
     // 测试syscall
-    test_syscall();
-    
+    //test_syscall();
+    //switch_to_user();
     sucmd_main();
     
     while(1) {
