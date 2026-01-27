@@ -1,7 +1,6 @@
 [org 0x7c00]
 [bits 16]
 
-
 start:
     ; 1. 初始化段寄存器
     xor ax, ax

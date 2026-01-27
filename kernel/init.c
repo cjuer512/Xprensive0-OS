@@ -18,6 +18,10 @@ static void test_syscall(void) {
     print_line("Direct call completed\n");
 }
 
+//用于最初初始化文件系统，作为通用驱动，可以后期更换
+//int filesystem_initial(){}
+
+
 __attribute__((noreturn)) void kernel_init(){
     init_syscall();
     

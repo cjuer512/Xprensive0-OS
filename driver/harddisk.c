@@ -112,6 +112,7 @@ __attribute__((interrupt)) static void hdd_irq_handler(void *frame)
     // 双重EOI
     outb(0xA0, 0x20);
     outb(0x20, 0x20);
+    __asm__ volatile("movq $1,%%rax":::"rax");
 }
 
 // ========== 函数1：初始化硬盘驱动 ==========

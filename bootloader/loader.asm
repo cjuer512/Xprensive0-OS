@@ -80,9 +80,9 @@ _start:
     jmp 0x08:long_mode_entry
 
 gdt:
-    dq 0x0000000000000000
-    dq 0x0020980000000000
-    dq 0x0000920000000000
+    dq 0x0000000000000000      ; 空描述符
+    dq 0x00209A0000000000      ; 64位代码段：可执行、代码段
+    dq 0x0000920000000000      ; 64位数据段
 gdt_end:
 
 gdt_ptr:
@@ -100,8 +100,27 @@ long_mode_entry:
     mov ds, ax
     mov es, ax
     mov ss, ax
+    mov r8,$
+    jmp cmp_cjuer
+    ;jmp 0x10200
+
     
-    ; 跳转到C代码
-    jmp 0x10200
+    
+
+cmp_cjuer:
+    add r8,1
+    cmp byte [r8],0x63
+    jne cmp_cjuer
+    cmp byte [r8+1],0x6A
+    jne cmp_cjuer
+    cmp byte [r8+2],0x75
+    jne cmp_cjuer
+    cmp byte [r8+3],0x65
+    jne cmp_cjuer
+    cmp byte [r8+4],0x72
+    jne cmp_cjuer
+    mov rax, r8      ; rax = 魔术地址
+    add rax, 6       ; rax = 魔术地址 + 6
+    jmp rax          ; 跳转到rax指向的地址
 
 times 512 - ($ - $$) db 0

@@ -6,6 +6,8 @@
 __attribute__((aligned(4096))) static uint8_t idt[4096] = {0};  // IDT表（4KB，对齐到4KB）
 __attribute__((aligned(512))) static uint64_t big_buffer[256 * 4] = {0};  // 硬盘缓冲区（2KB，对齐到512）
 extern void kernel_init();
+//魔术，启动时用
+const char boot_magic[] __attribute__((section(".boot_magic"))) = "cjuer";
 __attribute__((noreturn)) void loader64_main() {
     __asm__ volatile("cli");
     // 1. 先切换VGA 13h模式（必须放最前面！）
@@ -61,7 +63,7 @@ __attribute__((noreturn)) void loader64_main() {
     //char* video1 = (char*)0xB8000;
     //video1[0] = 'K';
     //__asm__ volatile("int $0x21");
-    __asm__ volatile("int $0x2E");
+    //__asm__ volatile("int $0x2E");
     
     // 4. 开中断（如果需要）
     kernel_init();

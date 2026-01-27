@@ -12,7 +12,7 @@ static int cmd_length = 0;
 int cmpstr(char* start,char* targetword,int number){
     for(int i = 0;i<number;i = i+1){
         if(start[i]==targetword[i]){
-            if(i = number-1){
+            if(i == number-1){
                 return 1;
             }
             continue;
@@ -20,6 +20,13 @@ int cmpstr(char* start,char* targetword,int number){
             return 0;
         }
     }
+}
+int len(const char *str) {
+    int count = 0;
+    while (str[count] != '\0') {
+        count++;
+    }
+    return count;
 }
 void execute_command(char *cmd)
 {
@@ -59,9 +66,20 @@ void execute_command(char *cmd)
         // echo命令：显示后面的内容
         print_line(&cmd[5]); // 跳过 "echo "
         print_line("\n");
-    }else if(cmpstr(cmd,"version",7)){
-        print_line("Xprensive-OS,version0.0.0");
+    }else if(cmpstr(cmd,"version",len("version"))){
+        int a = len("version");
+        char b = (char)a;
+        print_char(b);
+        print_line("Xprensive-OS,version0.0.0,author:cjuer512,chinajuer2009@outlook.com");
         print_line("\n");
+    }else if(cmpstr(cmd,"diskread",8))
+    {
+        __asm__ volatile("movq $0,%%rax":::"rax");
+        __asm__ volatile("movl $1,%%edi":::"rdi");
+        __asm__ volatile("movb $1,%%sil":::"rsi");
+        __asm__ volatile("movq $0x20000,%%rdx":::"rdx");
+        __asm__ volatile("int $0x2E");
+        print_line("ok");
     }
     else
     {
