@@ -1,7 +1,15 @@
+;dd一个字节，dw两个字节，dd四个字节，dq8个字节
+;byte字节8位，word字16位，dword双字32位，qword四字64位，int32/long64：32位有符号整数，INT64​ / LONGLONG：64位有符号整数
+;写上面这些是因为有时候老是记不住，记不住就翻上来看看不用去看文档
 [org 0x7c00]
 [bits 16]
-
-start:
+JumpBoot db 0EBh, 076h, 090h
+FileSystemName db 'CJUER   '
+times 53 db 0      ;MustBeZero
+;PartitionOffset
+times 120 - ($ - $$) db 0
+;算了，不用exfat了，太难了，先放着吧
+boot_start:
     ; 1. 初始化段寄存器
     xor ax, ax
     mov ds, ax
@@ -136,14 +144,44 @@ BEGIN_PM:
 .print_loop:
     mov al, [esi]
     cmp al, 0
-    je .done
+    je .predone
     mov [edi], ax        ; 写入字符和属性
     add edi, 2
     inc esi
     jmp .print_loop
-
+.predone:
+    mov eax,$
+    ;jmp 0x10000
+    jmp .done
 .done:
-    jmp 0x10000
+    ;jmp 0x10000
+    add eax,1
+    cmp byte [eax],0x63
+    jne .done
+    cmp byte [eax+1],0x6A
+    jne .done
+    cmp byte [eax+2],0x75
+    jne .done
+    cmp byte [eax+3],0x65
+    jne .done
+    cmp byte [eax+4],0x72
+    jne .done
+    cmp byte [eax+5],'L'
+    jne .done
+    cmp byte [eax+6],'O'
+    jne .done
+    cmp byte [eax+7],'A'
+    jne .done
+    cmp byte [eax+8],'D'
+    jne .done
+    cmp byte [eax+9],'E'
+    jne .done
+    cmp byte [eax+10],'R'
+    jne .done
+    mov ebx, eax      ; rax = 魔术地址
+    add ebx, 11       ; rax = 魔术地址 + 6
+    jmp ebx          ; 跳转到rax指向的地址
+    ;jmp 0x10000
     
 ; ==================== 数据区 ====================
 [bits 16]

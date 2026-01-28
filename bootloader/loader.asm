@@ -1,6 +1,6 @@
 [bits 32]
 org 0x10000
-
+MagicnumberLoader db 'cjuerLOADER'
 _start:
     ; 基础设置
     mov ax, 0x10
