@@ -4,7 +4,11 @@ ENTRY(loader64_main)
 SECTIONS {
     /* 内核加载地址 */
     . = 0x10200;
-    
+    .boot_magic : {
+        *(.boot_magic)      
+        
+        __magic_end = .;
+    }
     /* 代码段 */
     .text : {
         *(.text)
