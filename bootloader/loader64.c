@@ -3,16 +3,19 @@
 #include "../driver/driver.h"
 #include "../driver/driverp.h"
 #include "../kernel/kernel.h"
-__attribute__((aligned(4096))) static uint8_t idt[4096] = {0};  // IDT表（4KB，对齐到4KB）
-__attribute__((aligned(512))) static uint64_t big_buffer[256 * 4] = {0};  // 硬盘缓冲区（2KB，对齐到512）
+#include "../kernel/api/api.h"
+__attribute__((aligned(2))) uint16_t buffer[256];
+__attribute__((aligned(4096))) static uint8_t idt[4096] = {0};           // IDT表（4KB，对齐到4KB）
+__attribute__((aligned(512))) static uint64_t big_buffer[256 * 4] = {0}; // 硬盘缓冲区（2KB，对齐到512）
 extern void kernel_init();
-//魔数，启动时用
+// 魔数，启动时用
 const char boot_magic[] __attribute__((section(".boot_magic"))) = "cjuer";
-__attribute__((noreturn)) void loader64_main() {
+__attribute__((noreturn)) void loader64_main()
+{
     __asm__ volatile("cli");
     // 1. 先切换VGA 13h模式（必须放最前面！）
-    //vga_set_mode_13h();
-    
+    // vga_set_mode_13h();
+
     // 2. 初始化调色板（模式切换后再做，且修正数值范围）
     /*outb(0x3C8, 0); // 从索引0开始设置
     for(int i=0; i<256; i++) {
@@ -20,11 +23,11 @@ __attribute__((noreturn)) void loader64_main() {
         outb(0x3C9, i >> 2);   // 绿色分量
         outb(0x3C9, i >> 2);   // 蓝色分量
     }*/
-    
+
     // 3. 往显存写入渐变值（最后写）
     // 替换你当前的清屏代码
-    //vga_set_palette_color(1, 0x00, 0x00, 0xFF); // 索引1=纯蓝
-    //vga_clear_screen(1); // 清屏为蓝色
+    // vga_set_palette_color(1, 0x00, 0x00, 0xFF); // 索引1=纯蓝
+    // vga_clear_screen(1); // 清屏为蓝色
     outb(0x20, 0x11); // 向主PIC发送ICW1
     // 创造延迟
     for (int i = 0; i < 100; i++)
@@ -42,32 +45,74 @@ __attribute__((noreturn)) void loader64_main() {
     outb(0x21, 0xFD); // OCW1: 屏蔽所有中断，只开启键盘(IRQ1)
 
     outb(0xA1, 0xFF); // OCW1: 屏蔽所有从PIC中断
-    //2.加载驱动
-    //2.1键盘驱动（一般来说其实应该是硬盘驱动，但是因为我先写的键盘驱动所以就先加载了）
-    keyboard_init(idt);
+    // 2.加载驱动
+    // 2.1键盘驱动（一般来说其实应该是硬盘驱动，但是因为我先写的键盘驱动所以就先加载了）
+    //keyboard_init(idt);
 
-    //2.2硬盘驱动
-    //切记！！！这个硬盘驱动有着配置pic的功能，删了会崩溃
+    // 2.2硬盘驱动
+    // 切记！！！这个硬盘驱动有着配置pic的功能，删了会崩溃
     hdd_init_all(idt);
     // 3. 加载IDT（lidt）
-    struct {
+    struct
+    {
         uint16_t limit;
         uint64_t base;
     } __attribute__((packed)) idtr;
     idtr.limit = sizeof(idt) - 1;
     idtr.base = (uint64_t)idt;
-    
+
     __asm__ volatile("lidt %0" : : "m"(idtr));
     __asm__ volatile("sti");
-    //hdd_read(100, 4, big_buffer);  // 从扇区100开始读4个扇区
-    //char* video1 = (char*)0xB8000;
-    //video1[0] = 'K';
+    // hdd_read(100, 4, big_buffer);  // 从扇区100开始读4个扇区
+    // char* video1 = (char*)0xB8000;
+    // video1[0] = 'K';
     //__asm__ volatile("int $0x21");
     //__asm__ volatile("int $0x2E");
-    
+
     // 4. 开中断（如果需要）
-    kernel_init();
-    while(1){
+    // kernel_init();
+
+    // int flag = hdd_read(2,1,(uint64_t*)0x20000);
+    // int flag = FindInitalCjuerfilesystem();
+    // print_char((char)flag);
+    // if(flag==-1){
+    // }else{
+    //     print_char('b');
+    // }
+    print_char('a');
+    int result = hdd_read_simple(18, (uint32_t*)0x20000);
+    if(result==-2){
+        print_char('2');
+    }else if (result==0)
+    {
+        print_char('0');
+    }
+    
+    else
+    {
+        print_char('3');
+    }
+    //int flag = FindInitalCjuerfilesystem();
+    //int flag = hdd_read_sectors(17, 1, buffer); // 读取LBA 17
+    int table =0;
+    uint32_t id = (uint32_t)0x0;
+    int mode = 1;
+    char* buffer = (char*)0x20000;
+    long res = getlocatefile(table,id,mode,buffer);
+
+    print_line("ok");
+
+    print_line("goto 145");
+    hdd_read_simple(19,(uint32_t*)0x20200);
+    uint32_t *addr = (uint32_t*)0x20012;
+    __asm__ volatile (
+        "jmp *%0"             // 通过指针间接跳转
+        : /* 无输出 */          // 因为不会返回，所以没有输出
+        : "r" (addr)          // 输入：将addr的值放入一个通用寄存器
+        : "memory"            // 损坏部分：告知编译器内存可能被更改
+    );
+    while (1)
+    {
         __asm__ volatile("nop");
     }
 }

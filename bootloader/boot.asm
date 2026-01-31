@@ -5,7 +5,7 @@
 [bits 16]
 JumpBoot db 0EBh, 076h, 090h
 FileSystemName db 'CJUER   '
-times 53 db 0      ;MustBeZero
+TablePosition db '4'
 ;PartitionOffset
 times 120 - ($ - $$) db 0
 ;算了，不用exfat了，太难了，先放着吧

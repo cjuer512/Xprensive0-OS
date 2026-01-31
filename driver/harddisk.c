@@ -6,6 +6,7 @@
 
 #include "stdint.h"
 #include "driverp.h"
+#include "../kernel/api/api.h"
 // ========== 端口定义 ==========
 #define ATA_DATA 0x1F0
 #define ATA_ERROR 0x1F1
@@ -190,42 +191,51 @@ int hdd_read(uint32_t lba, uint8_t count, uint64_t *buffer)
 }
 
 // ========== 函数3：简单读扇区（轮询，不依赖中断） ==========
-int hdd_read_simple(uint32_t lba, uint16_t *buffer)
+int hdd_read_simple(uint32_t lba, uint32_t *buffer)
 {
-    /*
-     * 简单读取一个扇区（轮询方式）
-     * 用于测试或不需要中断的场景
-     */
-
-    // 等待就绪
-    while (inb(ATA_STATUS) & ATA_SR_BSY)
+    // 第一步：等待硬盘不忙，但必须加超时
+    unsigned int timeout = 1000000; // 超时计数器，值越大等待越久
+    while ( (inb(ATA_STATUS) & ATA_SR_BSY) && (timeout > 0) )
     {
+        timeout--;
+        // 可选：插入少量空操作，降低CPU占用
+        __asm__ volatile ("pause");
+    }
+    if (timeout == 0) {
+        // 超时：硬盘根本不理我们，可能是没插电、端口错、没初始化
+        return -1; // 返回“设备不存在或未响应”错误
     }
 
-    // 发送LBA地址（读一个扇区）
+    // 第二步：发送读命令（和你的原代码完全一样）
     outb(ATA_DRIVE_HEAD, 0xE0 | ((lba >> 24) & 0x0F));
     outb(ATA_SECTOR_CNT, 1);
     outb(ATA_SECTOR_NUM, lba & 0xFF);
     outb(ATA_CYL_LOW, (lba >> 8) & 0xFF);
     outb(ATA_CYL_HIGH, (lba >> 16) & 0xFF);
-
-    // 发送读命令
     outb(ATA_COMMAND, ATA_CMD_READ_PIO);
 
-    // 等待数据就绪
+    // 第三步：等待数据就绪，也必须加超时
+    timeout = 1000000; // 重置超时计数器
     uint8_t status;
     do
     {
         status = inb(ATA_STATUS);
-        if (status & ATA_SR_ERR)
-            return -1;
+        if (status & ATA_SR_ERR) {
+            // 硬盘明确报告错误（比如扇区不存在）
+            return -2; // 返回“设备报告错误”
+        }
+        if (timeout-- == 0) {
+            // 超时：命令已发送但硬盘迟迟不给数据
+            return -3; // 返回“等待数据超时”
+        }
+        __asm__ volatile ("pause");
     } while (!(status & ATA_SR_DRQ));
 
-    // 读取512字节数据
+    // 第四步：读取数据（和你的原代码完全一样）
     for (int i = 0; i < 256; i++)
     {
         buffer[i] = inw(ATA_DATA);
     }
 
-    return 0;
+    return 0; // 成功
 }
