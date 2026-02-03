@@ -24,5 +24,5 @@ uint16_t get_cursor_position(void);
 #include "stdint.h"
 
 void hdd_init_all(uint8_t *idt);
-int hdd_read_simple(uint32_t lba, uint32_t *buffer);
+int hdd_read_simple(uint32_t lba, uint16_t *buffer,int byte_count,int start);
 int hdd_read_sectors(uint32_t lba, uint8_t sectors, uint16_t *buffer);

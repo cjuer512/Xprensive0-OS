@@ -1,4 +1,4 @@
-#include "api/api.h"
+#include "suapi/api.h"
 #include "stdint.h"
 #include "../driver/driverp.h"
 static int i = 0;
@@ -162,12 +162,17 @@ void input()
 
     outb(0x20, 0x20);
 }
-
+__attribute__((section(".text.boot")))
 void sucmd_main()
 {
-    print_line("hello,welcome to Xprensive-OS command prompt\n");
-    print_line(">>>");
-
+    //print_line("hello,welcome to Xprensive-OS command prompt\n");
+    //print_line(">>>");
+    while(1){
+        char* video=(char*)0xB8000;
+        video[0]='c';
+        video[1]=0x0F;
+        __asm__ volatile("nop");
+    }
     // 将 input 函数的地址存入固定位置 0x9000
     uint64_t *keyboard_new_handler_positon = (uint64_t *)0x9000;
     *keyboard_new_handler_positon = (uint64_t)input;

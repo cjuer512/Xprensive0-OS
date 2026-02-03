@@ -3,10 +3,9 @@
 #include "../driver/driver.h"
 #include "../driver/driverp.h"
 #include "../kernel/kernel.h"
-#include "../driver/api.h"
-__attribute__((aligned(2))) uint16_t buffer[256];
+#include "../kernel/api/api.h"
 __attribute__((aligned(4096))) static uint8_t idt[4096] = {0};           // IDT表（4KB，对齐到4KB）
-__attribute__((aligned(512))) static uint16_t big_buffer[256 * 4] = {0}; // 硬盘缓冲区（2KB，对齐到512）
+__attribute__((aligned(512))) static uint64_t big_buffer[256 * 4] = {0}; // 硬盘缓冲区（2KB，对齐到512）
 extern void kernel_init();
 // 魔数，启动时用
 const char boot_magic[] __attribute__((section(".boot_magic"))) = "cjuer";
@@ -47,7 +46,7 @@ __attribute__((noreturn)) void loader64_main()
     outb(0xA1, 0xFF); // OCW1: 屏蔽所有从PIC中断
     // 2.加载驱动
     // 2.1键盘驱动（一般来说其实应该是硬盘驱动，但是因为我先写的键盘驱动所以就先加载了）
-    // keyboard_init(idt);
+    keyboard_init(idt);
 
     // 2.2硬盘驱动
     // 切记！！！这个硬盘驱动有着配置pic的功能，删了会崩溃
@@ -72,76 +71,22 @@ __attribute__((noreturn)) void loader64_main()
     // 4. 开中断（如果需要）
     // kernel_init();
 
-    // int flag = hdd_read(2,1,(uint64_t*)0x20000);
+    // int flag = hdd_read(2,1,(uint64_t*)0x13000);
     // int flag = FindInitalCjuerfilesystem();
     // print_char((char)flag);
     // if(flag==-1){
     // }else{
     //     print_char('b');
     // }
-    print_char('a');
-    int result = hdd_read_simple(18, (uint16_t *)0x20000, 512, 0);
-    if (result == -2)
-    {
-        print_char('2');
-    }
-    else if (result == 0)
-    {
-        print_char('0');
-    }
-
-    else
-    {
-        print_char('3');
-    }
-    // int flag = FindInitalCjuerfilesystem();
-    // int flag = hdd_read_sectors(17, 1, buffer); // 读取LBA 17
-    int table = 0;
-    uint32_t id = (uint32_t)0x0;
-    int mode = 1;
-    char *buffer = (char *)0x20000;
-    long res = getlocatefile(table, id, mode, buffer);
-
+    __asm__ volatile("movq $0,%%rax" ::: "rax");
+    __asm__ volatile("movl $1,%%edi" ::: "rdi");
+    __asm__ volatile("movb $1,%%sil" ::: "rsi");
+    __asm__ volatile("movq $0x13000,%%rdx" ::: "rdx");
+    __asm__ volatile("int $0x2E");
+    //int flag = FindInitalCjuerfilesystem();
+    //long result = getlocatefile(1, (uint64_t*)0, 1, (char*)0x13000);
     print_line("ok");
-
-    print_line("goto 153");
-    int i = -1;
-    
-    while (1)
-    {
-        i=i+1;
-        hdd_read_simple(19, big_buffer+(256*i), 512, 0);
-        int *check = (int*)(big_buffer+(256*i)-2);
-        if(i>=3){
-            break;
-        }
-        if(*check==0){
-            break;
-        }
-    }
-    i=-1;
-    // === 开始复制：从 big_buffer 复制到 0x20200，每复制60字节就跳过4字节 ===
-    {
-        uint8_t *source = (uint8_t *)big_buffer;   // 源地址
-        uint8_t *dest = (uint8_t *)0x20200;        // 目标地址
-        uint8_t *src_end = (uint8_t *)big_buffer + 256 * 4 * sizeof(uint16_t); // big_buffer结束地址
-        
-        while (source < src_end) {
-            // 1. 复制60个字节
-            for (int j = 0; j < 60; j++) {
-                if (source >= src_end) break;  // 防止越界
-                *dest++ = *source++;
-            }
-            
-            // 2. 跳过4个字节（源指针前进4，目标指针不动）
-            source += 4;
-        }
-    }
-    uint32_t *addr_new = (uint32_t *)0x2020C;
-    uint32_t addr = *addr_new;
-    uint64_t address = (uint64_t)0x2021A;
-    void (*kernel_entry)(void) = (void (*)(void))(uint64_t)address;
-    kernel_entry();
+    //print_line((char*)&result);
     while (1)
     {
         __asm__ volatile("nop");

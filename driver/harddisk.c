@@ -6,7 +6,7 @@
 
 #include "stdint.h"
 #include "driverp.h"
-#include "../kernel/api/api.h"
+#include "api.h"
 // ========== 端口定义 ==========
 #define ATA_DATA 0x1F0
 #define ATA_ERROR 0x1F1
@@ -191,7 +191,7 @@ int hdd_read(uint32_t lba, uint8_t count, uint64_t *buffer)
 }
 
 // ========== 函数3：简单读扇区（轮询，不依赖中断） ==========
-int hdd_read_simple(uint32_t lba, uint32_t *buffer)
+int hdd_read_simple(uint32_t lba, uint16_t *buffer,int byte_count,int start)
 {
     // 第一步：等待硬盘不忙，但必须加超时
     unsigned int timeout = 1000000; // 超时计数器，值越大等待越久
@@ -232,9 +232,9 @@ int hdd_read_simple(uint32_t lba, uint32_t *buffer)
     } while (!(status & ATA_SR_DRQ));
 
     // 第四步：读取数据（和你的原代码完全一样）
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < (int)(byte_count/2); i++)
     {
-        buffer[i] = inw(ATA_DATA);
+        buffer[start+i] = inw(ATA_DATA);
     }
 
     return 0; // 成功

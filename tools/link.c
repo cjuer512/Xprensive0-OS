@@ -1,3 +1,4 @@
+//这个工具是这个系统的可执行文件编译完后需要它进行链接才能运行
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

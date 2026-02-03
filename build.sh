@@ -2,7 +2,7 @@
 
 # 只编译生成调试文件
 echo "=== 编译带调试信息的文件 ==="
-rm -f hd.raw *.bin *.elf *.o *.gdb *.map *.log *.s
+rm -f hd.raw *.o *.gdb *.map *.log *.s
 
 # 1. 创建虚拟硬盘
 dd if=/dev/zero of=hd.raw bs=512 count=16384 2>/dev/null
@@ -26,10 +26,7 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -g \
     bootloader/loader64.c -o temp/loader64.o
 
-gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
-    -mno-red-zone -mgeneral-regs-only \
-    -g \
-    driver/keyboard.c -o temp/keyboard.o
+
 
 
 gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
@@ -44,7 +41,7 @@ gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
 gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -mno-red-zone -mgeneral-regs-only \
     -g \
-    kernel/api/print.c -o temp/print.o
+    driver/print.c -o temp/print.o
 gcc -c -m64 -ffreestanding -nostdlib -fno-builtin \
     -mno-red-zone -mgeneral-regs-only \
     -g \
@@ -74,6 +71,7 @@ truncate -s 512 temp/tryfilesystem.bin
 echo "boot.bin写入状态: $?"
 dd if=loader64.bin of=hd.raw bs=512 seek=2 conv=notrunc
 dd if=temp/tryfilesystem.bin of=hd.raw bs=512 seek=18 count=1 conv=notrunc
+./fs write kernelcmd.bin hd.raw 152
 # 生成符号表
 if [ -f "xprensive-debug.elf" ]; then
     nm xprensive-debug.elf > xprensive-debug.sym
